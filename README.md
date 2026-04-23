@@ -6,6 +6,7 @@ Upstreams (overridable via environment variables):
 
 - LM: `https://emasantam.id/content/lm.txt`
 - Antaremas: `https://antaremas.com/harga-emas/`
+- Galeri24: `https://galeri24.co.id/harga-emas`
 
 This project is **not** affiliated with those sites; it only reads the same public URLs you could open in a browser.
 
@@ -20,7 +21,7 @@ A sample build is hosted on Vercel:
 | Health | [https://lm-price.vercel.app/health](https://lm-price.vercel.app/health) |
 | LM prices (JSON) | [https://lm-price.vercel.app/v1/prices/antam](https://lm-price.vercel.app/v1/prices/antam) |
 | Antaremas “Harga Beli” (JSON) | [https://lm-price.vercel.app/v1/prices/hf](https://lm-price.vercel.app/v1/prices/hf) |
-| Galeri24 “Harga ANTAM” (JSON) | [https://lm-price.vercel.app/v1/prices/galeri24](https://lm-price.vercel.app/v1/prices/galeri24/antam) |
+| Galeri24 “Harga ANTAM” (JSON) | [https://lm-price.vercel.app/v1/prices/galeri24](https://lm-price.vercel.app/v1/prices/galeri24) |
 
 Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung](https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung)
 
@@ -29,7 +30,9 @@ Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jaw
 1. **Downloads** the LM document over HTTPS.
 2. **Parses** embedded tables (per region / butik) into a list of locations, each with gram-based **price**, **stock**, and **sold out** flags.
 3. **Serves** JSON via a Gin API, with optional **area** and **location** query filters. Unknown filter values return **400** with lists of valid **areas** and **locations** from the latest scrape.
-4. **Scrapes** Antaremas' “Ukuran / Harga Beli” table into a simple list of size + buy price (no stock, no area, no location).
+4. **Scrapes** Antaremas' “Ukuran / Harga Beli” table into a simple list of size + buy price.
+5. **Scrapes** Galeri24's “Harga ANTAM” table into weight + sell/buyback prices.
+6. Caches upstream scrapes (configurable TTL) and enforces per-IP rate limiting with a higher quota for Basic-Auth requests.
 
 ## API
 
@@ -38,7 +41,7 @@ Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jaw
 | `GET` | `/health` | Liveness check: `{"status":"ok"}`. |
 | `GET` | `/v1/prices/antam` | Parsed LM prices as JSON (see below). |
 | `GET` | `/v1/prices/hf` | Antaremas “Harga Beli” table as JSON (see below). |
-| `GET` | `/v1/prices/galeri24/antam` | Galeri24 “Harga ANTAM” table as JSON (see below). |
+| `GET` | `/v1/prices/galeri24` | Galeri24 “Harga ANTAM” table as JSON (see below). |
 
 ### `GET /v1/prices/antam` query parameters
 
@@ -52,7 +55,7 @@ If `area` or `location` does not match any value in the current scrape, the resp
 
 ### JSON shape (default response)
 
-The LM endpoint returns an envelope with the upstream `last_update` (RFC3339) and `data` rows.
+All endpoints return the same envelope:
 
 ```json
 {
@@ -65,7 +68,8 @@ The LM endpoint returns an envelope with the upstream `last_update` (RFC3339) an
       "prices": [
         {
           "gramasi": 0.5,
-          "price": 1452500,
+          "buy_price": 1452500,
+          "sell_price": 0,
           "stock": 44,
           "sold_out": false
         }
@@ -75,35 +79,18 @@ The LM endpoint returns an envelope with the upstream `last_update` (RFC3339) an
 }
 ```
 
-`price` is in **IDR** (integer). When `sold_out` is `true`, `stock` is `0`.
+Defaults:
 
-### JSON shape (`GET /v1/prices/hf`)
+- Missing `location` / `area` are set to `"Indonesia"`.
+- Missing `stock` / `sell_price` are set to `0`.
 
-Antaremas endpoint returns the closest “Terakhir Diperbarui …” timestamp (RFC3339) and the “Harga Beli” table (size + buy price):
+`buy_price` and `sell_price` are in **IDR** (integer). When `sold_out` is `true`, `stock` is `0`.
 
-```json
-{
-  "last_update": "2026-04-23T09:30:00+07:00",
-  "data": [
-    { "size": "0.5 gram", "buy_price": 1655000 },
-    { "size": "1 gram", "buy_price": 3074000 }
-  ]
-}
-```
+Notes:
 
-### JSON shape (`GET /v1/prices/galeri24/antam`)
-
-Galeri24 endpoint returns the “Diperbarui …” date (RFC3339, at local midnight) and the “Harga ANTAM” table:
-
-```json
-{
-  "last_update": "2026-04-23T00:00:00+07:00",
-  "data": [
-    { "weight": 0.5, "sell_price": 1512000, "buyback_price": 1318000 },
-    { "weight": 1, "sell_price": 2918000, "buyback_price": 2636000 }
-  ]
-}
-```
+- `GET /v1/prices/antam`: `prices[].buy_price` comes from the upstream LM `price` column; `sell_price` is `0`. Stock/sold_out are populated.
+- `GET /v1/prices/hf`: `prices[].buy_price` is the “Harga Beli” value; `stock` and `sell_price` are `0`.
+- `GET /v1/prices/galeri24`: `prices[].buy_price` is the “Harga Jual” value and `sell_price` is the “Harga Buyback” value (stock is `0`).
 
 ## Configuration
 
@@ -141,8 +128,10 @@ Then:
 - Health: `http://127.0.0.1:8080/health`
 - LM prices: `http://127.0.0.1:8080/v1/prices/antam`
 - Antaremas: `http://127.0.0.1:8080/v1/prices/hf`
-- Galeri24: `http://127.0.0.1:8080/v1/prices/galeri24/antam`
+- Galeri24: `http://127.0.0.1:8080/v1/prices/galeri24`
 - Example filter: `http://127.0.0.1:8080/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung`
+
+For a quick start, copy `.env.example` to `.env`.
 
 ## Build
 
@@ -159,9 +148,11 @@ The code follows a **layered** layout (domain, use case, HTTP delivery, remote r
 - `internal/config` — environment-backed settings.
 - `internal/domain/lm` — entities, parsing, filtering, and the `RawSource` port.
 - `internal/domain/antaremas` — entities, parsing, and the `RawSource` port.
+- `internal/domain/galeri24` — entities, parsing, and the `RawSource` port.
 - `internal/usecase` — orchestrates fetch → parse → filter.
 - `internal/repository/lmremote` — HTTP implementation of `lm.RawSource`.
 - `internal/repository/antaremasremote` — HTTP implementation of `antaremas.RawSource`.
+- `internal/repository/galeri24remote` — HTTP implementation of `galeri24.RawSource`.
 - `internal/delivery/http` — Gin router and handlers.
 
 `migrations/` and `internal/pkg/` are reserved for future database migrations and shared utilities.
