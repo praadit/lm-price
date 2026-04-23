@@ -10,6 +10,7 @@ import (
 // Standard API envelope used by all endpoints.
 type PricesEnvelope struct {
 	LastUpdate string         `json:"last_update"`
+	Source     string         `json:"source"`
 	Data       []LocationData `json:"data"`
 }
 

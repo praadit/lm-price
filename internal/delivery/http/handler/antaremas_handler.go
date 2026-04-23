@@ -37,6 +37,7 @@ func (h *Antaremas) GetBuyPrices(c *gin.Context) {
 
 	out := PricesEnvelope{
 		LastUpdate: timeToRFC3339String(resp.LastUpdate),
+		Source:     "Antaremas",
 		Data: []LocationData{
 			{
 				Location: "Indonesia",

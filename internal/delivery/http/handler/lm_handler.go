@@ -45,6 +45,7 @@ func (h *LM) GetPrices(c *gin.Context) {
 
 	out := PricesEnvelope{
 		LastUpdate: timeToRFC3339String(payload.LastUpdate),
+		Source:     "Logam Mulia",
 		Data:       make([]LocationData, 0, len(payload.Data)),
 	}
 	for _, row := range payload.Data {

@@ -37,6 +37,7 @@ func (h *Galeri24) GetAntamPrices(c *gin.Context) {
 
 	out := PricesEnvelope{
 		LastUpdate: timeToRFC3339String(resp.LastUpdate),
+		Source:     "Galeri 24",
 		Data: []LocationData{
 			{
 				Location: "Indonesia",
