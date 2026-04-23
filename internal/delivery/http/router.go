@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/praadit/lm-price/internal/config"
 	"github.com/praadit/lm-price/internal/delivery/http/handler"
+	"github.com/praadit/lm-price/internal/delivery/http/middleware"
 	"github.com/praadit/lm-price/internal/usecase"
 )
 
@@ -18,6 +19,12 @@ func NewRouter(cfg config.Config, lmUC *usecase.LMUsecase, antUC *usecase.Antare
 	r.GET("/health", handler.Health)
 
 	v1 := r.Group("/v1")
+	v1.Use(middleware.RateLimit(middleware.RateLimitConfig{
+		BasicAuthUser:         cfg.BasicAuthUser,
+		BasicAuthPass:         cfg.BasicAuthPass,
+		UnauthorizedPerMinute: cfg.RateLimitUnauthorizedPerMinute,
+		AuthorizedPerMinute:   cfg.RateLimitAuthorizedPerMinute,
+	}))
 
 	prices := v1.Group("/prices")
 	prices.GET("/antam", lmH.GetPrices)

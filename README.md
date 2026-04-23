@@ -115,6 +115,10 @@ Galeri24 endpoint returns the “Diperbarui …” date (RFC3339, at local midni
 | `ANTAREMAS_SOURCE_URL` | `https://antaremas.com/harga-emas/` | URL of the Antaremas page to fetch. |
 | `GALERI24_SOURCE_URL` | `https://galeri24.co.id/harga-emas` | URL of the Galeri24 page to fetch. |
 | `CACHE_TTL` | `60s` | Cache TTL for upstream scrapes (e.g. `30s`, `5m`). Set to `0s` to disable caching. |
+| `BASIC_AUTH_USER` | (unset) | If set (with `BASIC_AUTH_PASS`), requests using HTTP Basic Auth get a higher rate limit. |
+| `BASIC_AUTH_PASS` | (unset) | Basic Auth password. |
+| `RATE_LIMIT_UNAUTHORIZED_PER_MINUTE` | `1` | Per-IP rate limit for unauthenticated requests (requests/min). |
+| `RATE_LIMIT_AUTHORIZED_PER_MINUTE` | `100` | Per-IP rate limit for authenticated requests (requests/min). |
 
 HTTP timeouts are defined in code (`internal/config`): **15s** for the upstream client, **20s** per `/v1/prices` request context.
 
