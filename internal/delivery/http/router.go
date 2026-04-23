@@ -12,6 +12,12 @@ import (
 func NewRouter(cfg config.Config, lmUC *usecase.LMUsecase, antUC *usecase.AntaremasUsecase, g24UC *usecase.Galeri24Usecase) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+	rateLimitConfig := middleware.RateLimitConfig{
+		BasicAuthUser:         cfg.BasicAuthUser,
+		BasicAuthPass:         cfg.BasicAuthPass,
+		UnauthorizedPerMinute: cfg.RateLimitUnauthorizedPerMinute,
+		AuthorizedPerMinute:   cfg.RateLimitAuthorizedPerMinute,
+	}
 
 	lmH := &handler.LM{UC: lmUC, ReqTimeout: cfg.PricesTimeout}
 	amH := &handler.Antaremas{UC: antUC, ReqTimeout: cfg.PricesTimeout}
@@ -19,16 +25,19 @@ func NewRouter(cfg config.Config, lmUC *usecase.LMUsecase, antUC *usecase.Antare
 	r.GET("/health", handler.Health)
 
 	v1 := r.Group("/v1")
-	v1.Use(middleware.RateLimit(middleware.RateLimitConfig{
-		BasicAuthUser:         cfg.BasicAuthUser,
-		BasicAuthPass:         cfg.BasicAuthPass,
-		UnauthorizedPerMinute: cfg.RateLimitUnauthorizedPerMinute,
-		AuthorizedPerMinute:   cfg.RateLimitAuthorizedPerMinute,
-	}))
 
 	prices := v1.Group("/prices")
-	prices.GET("/antam", lmH.GetPrices)
-	prices.GET("/hf", amH.GetBuyPrices)
-	prices.GET("/galeri24", g24H.GetAntamPrices)
+	prices.GET("/antam",
+		middleware.RateLimit(rateLimitConfig),
+		lmH.GetPrices,
+	)
+	prices.GET("/hfgold",
+		middleware.RateLimit(rateLimitConfig),
+		amH.GetBuyPrices,
+	)
+	prices.GET("/galeri24",
+		middleware.RateLimit(rateLimitConfig),
+		g24H.GetAntamPrices,
+	)
 	return r
 }
