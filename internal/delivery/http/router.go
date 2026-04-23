@@ -20,7 +20,7 @@ func NewRouter(cfg config.Config, lmUC *usecase.LMUsecase, antUC *usecase.Antare
 	}
 
 	lmH := &handler.LM{UC: lmUC, ReqTimeout: cfg.PricesTimeout}
-	amH := &handler.Antaremas{UC: antUC, ReqTimeout: cfg.PricesTimeout}
+	// amH := &handler.Antaremas{UC: antUC, ReqTimeout: cfg.PricesTimeout}
 	g24H := &handler.Galeri24{UC: g24UC, ReqTimeout: cfg.PricesTimeout}
 	r.GET("/health", handler.Health)
 
@@ -31,10 +31,10 @@ func NewRouter(cfg config.Config, lmUC *usecase.LMUsecase, antUC *usecase.Antare
 		middleware.RateLimit(rateLimitConfig),
 		lmH.GetPrices,
 	)
-	prices.GET("/hfgold",
-		middleware.RateLimit(rateLimitConfig),
-		amH.GetBuyPrices,
-	)
+	// prices.GET("/hfgold",
+	// 	middleware.RateLimit(rateLimitConfig),
+	// 	amH.GetBuyPrices,
+	// )
 	prices.GET("/galeri24",
 		middleware.RateLimit(rateLimitConfig),
 		g24H.GetAntamPrices,

@@ -5,7 +5,6 @@ A small **Go** service that fetches public gold price tables from upstream HTML 
 Upstreams (overridable via environment variables):
 
 - LM: `https://emasantam.id/content/lm.txt`
-- Antaremas: `https://antaremas.com/harga-emas/`
 - Galeri24: `https://galeri24.co.id/harga-emas`
 
 This project is **not** affiliated with those sites; it only reads the same public URLs you could open in a browser.
@@ -20,7 +19,6 @@ A sample build is hosted on Vercel:
 |----------|-----|
 | Health | [https://lm-price.vercel.app/health](https://lm-price.vercel.app/health) |
 | LM prices (JSON) | [https://lm-price.vercel.app/v1/prices/antam](https://lm-price.vercel.app/v1/prices/antam) |
-| Antaremas “Harga Beli” (JSON) | [https://lm-price.vercel.app/v1/prices/hfgold](https://lm-price.vercel.app/v1/prices/hfgold) |
 | Galeri24 “Harga ANTAM” (JSON) | [https://lm-price.vercel.app/v1/prices/galeri24](https://lm-price.vercel.app/v1/prices/galeri24) |
 
 Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung](https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung)
@@ -30,9 +28,8 @@ Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jaw
 1. **Downloads** the LM document over HTTPS.
 2. **Parses** embedded tables (per region / butik) into a list of locations, each with gram-based **price**, **stock**, and **sold out** flags.
 3. **Serves** JSON via a Gin API, with optional **area** and **location** query filters. Unknown filter values return **400** with lists of valid **areas** and **locations** from the latest scrape.
-4. **Scrapes** Antaremas' “Ukuran / Harga Beli” table into a simple list of size + buy price.
-5. **Scrapes** Galeri24's “Harga ANTAM” table into weight + sell/buyback prices.
-6. Caches upstream scrapes (configurable TTL) and enforces per-IP rate limiting with a higher quota for Basic-Auth requests.
+4. **Scrapes** Galeri24's “Harga ANTAM” table into weight + sell/buyback prices.
+5. Caches upstream scrapes (configurable TTL) and enforces per-IP rate limiting with a higher quota for Basic-Auth requests.
 
 ## API
 
@@ -40,7 +37,6 @@ Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jaw
 |--------|------|-------------|
 | `GET` | `/health` | Liveness check: `{"status":"ok"}`. |
 | `GET` | `/v1/prices/antam` | Parsed LM prices as JSON (see below). |
-| `GET` | `/v1/prices/hfgold` | Antaremas “Harga Beli” table as JSON (see below). |
 | `GET` | `/v1/prices/galeri24` | Galeri24 “Harga ANTAM” table as JSON (see below). |
 
 ### `GET /v1/prices/antam` query parameters
@@ -89,7 +85,6 @@ Defaults:
 Notes:
 
 - `GET /v1/prices/antam`: `prices[].buy_price` comes from the upstream LM `price` column; `sell_price` is `0`. Stock/sold_out are populated.
-- `GET /v1/prices/hfgold`: `prices[].buy_price` is the “Harga Beli” value; `stock` and `sell_price` are `0`.
 - `GET /v1/prices/galeri24`: `prices[].buy_price` is the “Harga Jual” value and `sell_price` is the “Harga Buyback” value (stock is `0`).
 
 ## Configuration
@@ -99,7 +94,6 @@ Notes:
 | `PORT` | `8080` | Listen port (value is used as `:{PORT}`). |
 | `GIN_MODE` | unset (debug) | Set to `release` for production-style Gin logging. |
 | `LM_SOURCE_URL` | `https://emasantam.id/content/lm.txt` | URL of the LM HTML document to fetch. |
-| `ANTAREMAS_SOURCE_URL` | `https://antaremas.com/harga-emas` | URL of the Antaremas page to fetch. |
 | `GALERI24_SOURCE_URL` | `https://galeri24.co.id/harga-emas` | URL of the Galeri24 page to fetch. |
 | `CACHE_TTL_SECONDS` | `60` | Cache TTL for upstream scrapes in seconds. Set to `0` to disable caching. |
 | `BASIC_AUTH_USER` | (unset) | If set (with `BASIC_AUTH_PASS`), requests using HTTP Basic Auth get a higher rate limit. |
@@ -127,7 +121,6 @@ Then:
 
 - Health: `http://127.0.0.1:8080/health`
 - LM prices: `http://127.0.0.1:8080/v1/prices/antam`
-- Antaremas: `http://127.0.0.1:8080/v1/prices/hfgold`
 - Galeri24: `http://127.0.0.1:8080/v1/prices/galeri24`
 - Example filter: `http://127.0.0.1:8080/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung`
 
@@ -147,11 +140,9 @@ The code follows a **layered** layout (domain, use case, HTTP delivery, remote r
 - `cmd/api` — process entrypoint.
 - `internal/config` — environment-backed settings.
 - `internal/domain/lm` — entities, parsing, filtering, and the `RawSource` port.
-- `internal/domain/antaremas` — entities, parsing, and the `RawSource` port.
 - `internal/domain/galeri24` — entities, parsing, and the `RawSource` port.
 - `internal/usecase` — orchestrates fetch → parse → filter.
 - `internal/repository/lmremote` — HTTP implementation of `lm.RawSource`.
-- `internal/repository/antaremasremote` — HTTP implementation of `antaremas.RawSource`.
 - `internal/repository/galeri24remote` — HTTP implementation of `galeri24.RawSource`.
 - `internal/delivery/http` — Gin router and handlers.
 
