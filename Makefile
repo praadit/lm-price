@@ -1,2 +1,2 @@
-run-api: 
+run: 
 	cd cmd/api && go run main.go

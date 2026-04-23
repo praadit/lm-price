@@ -1,5 +1,13 @@
 package lm
 
+import "time"
+
+// PricesResponse is the JSON envelope for parsed LM rows from the upstream document.
+type PricesResponse struct {
+	LastUpdate time.Time        `json:"last_update,omitempty"`
+	Data       []LocationPrices `json:"data"`
+}
+
 // LocationPrices is one butik row in the public JSON shape.
 type LocationPrices struct {
 	Location string  `json:"location"`

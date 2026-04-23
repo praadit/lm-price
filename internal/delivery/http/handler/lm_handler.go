@@ -32,7 +32,7 @@ func (h *LM) GetPrices(c *gin.Context) {
 		return
 	}
 
-	filtered, err := h.UC.ListPrices(ctx, c.Query("area"), c.Query("location"))
+	payload, err := h.UC.ListPrices(ctx, c.Query("area"), c.Query("location"))
 	if err != nil {
 		var qv *lm.QueryValidationError
 		if errors.As(err, &qv) {
@@ -43,5 +43,5 @@ func (h *LM) GetPrices(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, filtered)
+	c.JSON(http.StatusOK, payload)
 }

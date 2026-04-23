@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -18,18 +19,69 @@ func ParsePrices(html []byte) ([]LocationPrices, error) {
 	return parseFromDoc(doc), nil
 }
 
-// MarshalPricesJSON encodes rows as JSON (same shape as the HTTP API).
-func MarshalPricesJSON(rows []LocationPrices) ([]byte, error) {
-	return json.Marshal(rows)
+// ParsePricesDocument parses HTML into rows and extracts the upstream "Last update:" line.
+func ParsePricesDocument(html []byte) (PricesResponse, error) {
+	rows, err := ParsePrices(html)
+	if err != nil {
+		return PricesResponse{}, err
+	}
+	return PricesResponse{
+		LastUpdate: ExtractLastUpdate(html),
+		Data:       rows,
+	}, nil
+}
+
+// ExtractLastUpdate returns the upstream "Last update:" instant in Asia/Jakarta, or the zero time if missing or unparseable.
+func ExtractLastUpdate(html []byte) time.Time {
+	m := reLastUpdate.FindStringSubmatch(string(html))
+	if len(m) < 2 {
+		return time.Time{}
+	}
+	return parseLastUpdateLine(cleanText(m[1]))
+}
+
+func parseLastUpdateLine(line string) time.Time {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return time.Time{}
+	}
+	line = stripIndonesianTZSuffix(line)
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+	t, err := time.ParseInLocation("2 January 2006 15:04:05", strings.TrimSpace(line), loc)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func stripIndonesianTZSuffix(s string) string {
+	s = strings.TrimSpace(s)
+	for _, tz := range []string{" WIB", " WITA", " WIT"} {
+		if len(s) >= len(tz) {
+			suf := s[len(s)-len(tz):]
+			if strings.EqualFold(suf, tz) {
+				return strings.TrimSpace(s[:len(s)-len(tz)])
+			}
+		}
+	}
+	return s
+}
+
+// MarshalPricesJSON encodes a prices response as JSON (same shape as the HTTP API).
+func MarshalPricesJSON(resp PricesResponse) ([]byte, error) {
+	return json.Marshal(resp)
 }
 
 // PricesHTMLToJSON parses HTML then returns JSON bytes.
 func PricesHTMLToJSON(html []byte) ([]byte, error) {
-	rows, err := ParsePrices(html)
+	resp, err := ParsePricesDocument(html)
 	if err != nil {
 		return nil, err
 	}
-	return MarshalPricesJSON(rows)
+	return MarshalPricesJSON(resp)
 }
 
 func parseFromDoc(doc *goquery.Document) []LocationPrices {
@@ -132,6 +184,9 @@ func cellToQuote(gramasi float64, td *goquery.Selection) Price {
 }
 
 var reDigits = regexp.MustCompile(`[0-9]+`)
+
+// Upstream publishes e.g. <h6>Last update: 23 April 2026 11:30:02 WIB</h6>
+var reLastUpdate = regexp.MustCompile(`(?i)<h6>\s*Last update:\s*(.+?)\s*</h6>`)
 
 func parsePriceStockCell(td *goquery.Selection) (priceIDR int, stock *int, soldOut bool) {
 	raw := cleanText(td.Text())
