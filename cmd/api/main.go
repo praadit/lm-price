@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/praadit/lm-price/internal/config"
 	deliveryhttp "github.com/praadit/lm-price/internal/delivery/http"
+	"github.com/praadit/lm-price/internal/repository/antaremasremote"
 	"github.com/praadit/lm-price/internal/repository/lmremote"
 	"github.com/praadit/lm-price/internal/usecase"
 )
@@ -20,7 +21,11 @@ func main() {
 
 	src := lmremote.NewRawSource(cfg.LMURL, cfg.HTTPTimeout)
 	uc := &usecase.LMUsecase{Source: src}
-	r := deliveryhttp.NewRouter(cfg, uc)
+
+	amSrc := antaremasremote.NewRawSource(cfg.AntaremasURL, cfg.HTTPTimeout)
+	amUC := &usecase.AntaremasUsecase{Source: amSrc}
+
+	r := deliveryhttp.NewRouter(cfg, uc, amUC)
 
 	addr := ":8080"
 	if v := os.Getenv("PORT"); v != "" {
