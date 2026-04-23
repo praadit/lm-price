@@ -43,5 +43,30 @@ func (h *LM) GetPrices(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, payload)
+	out := PricesEnvelope{
+		LastUpdate: timeToRFC3339String(payload.LastUpdate),
+		Data:       make([]LocationData, 0, len(payload.Data)),
+	}
+	for _, row := range payload.Data {
+		loc := indonesiaIfEmpty(row.Location)
+		area := indonesiaIfEmpty(row.Area)
+		ld := LocationData{
+			Location: loc,
+			Product:  "ANTAM",
+			Area:     area,
+			Prices:   make([]PriceEntry, 0, len(row.Prices)),
+		}
+		for _, p := range row.Prices {
+			ld.Prices = append(ld.Prices, PriceEntry{
+				Gramasi:   p.Gramasi,
+				BuyPrice:  p.Price,
+				SellPrice: 0,
+				Stock:     p.Stock,
+				SoldOut:   p.SoldOut,
+			})
+		}
+		out.Data = append(out.Data, ld)
+	}
+
+	c.JSON(http.StatusOK, out)
 }

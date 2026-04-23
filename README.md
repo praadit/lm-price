@@ -18,10 +18,11 @@ A sample build is hosted on Vercel:
 | Endpoint | URL |
 |----------|-----|
 | Health | [https://lm-price.vercel.app/health](https://lm-price.vercel.app/health) |
-| Prices (JSON) | [https://lm-price.vercel.app/v1/prices](https://lm-price.vercel.app/v1/prices) |
-| Antaremas buy prices (JSON) | [https://lm-price.vercel.app/v1/antaremas/prices](https://lm-price.vercel.app/v1/antaremas/prices) |
+| LM prices (JSON) | [https://lm-price.vercel.app/v1/prices/antam](https://lm-price.vercel.app/v1/prices/antam) |
+| Antaremas “Harga Beli” (JSON) | [https://lm-price.vercel.app/v1/prices/hf](https://lm-price.vercel.app/v1/prices/hf) |
+| Galeri24 “Harga ANTAM” (JSON) | [https://lm-price.vercel.app/v1/prices/galeri24](https://lm-price.vercel.app/v1/prices/galeri24/antam) |
 
-Example (filtered): [https://lm-price.vercel.app/v1/prices?area=Area%20Jawa-Bali&location=Bandung](https://lm-price.vercel.app/v1/prices?area=Area%20Jawa-Bali&location=Bandung)
+Example (filtered): [https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung](https://lm-price.vercel.app/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung)
 
 ## What it does
 
@@ -35,10 +36,11 @@ Example (filtered): [https://lm-price.vercel.app/v1/prices?area=Area%20Jawa-Bali
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Liveness check: `{"status":"ok"}`. |
-| `GET` | `/v1/prices` | Parsed prices as JSON (see below). |
-| `GET` | `/v1/antaremas/prices` | Antaremas “Harga Beli” table as JSON (see below). |
+| `GET` | `/v1/prices/antam` | Parsed LM prices as JSON (see below). |
+| `GET` | `/v1/prices/hf` | Antaremas “Harga Beli” table as JSON (see below). |
+| `GET` | `/v1/prices/galeri24/antam` | Galeri24 “Harga ANTAM” table as JSON (see below). |
 
-### `GET /v1/prices` query parameters
+### `GET /v1/prices/antam` query parameters
 
 | Query | Description |
 |--------|-------------|
@@ -75,7 +77,7 @@ The LM endpoint returns an envelope with the upstream `last_update` (RFC3339) an
 
 `price` is in **IDR** (integer). When `sold_out` is `true`, `stock` is `0`.
 
-### JSON shape (`GET /v1/antaremas/prices`)
+### JSON shape (`GET /v1/prices/hf`)
 
 Antaremas endpoint returns the closest “Terakhir Diperbarui …” timestamp (RFC3339) and the “Harga Beli” table (size + buy price):
 
@@ -89,6 +91,20 @@ Antaremas endpoint returns the closest “Terakhir Diperbarui …” timestamp (
 }
 ```
 
+### JSON shape (`GET /v1/prices/galeri24/antam`)
+
+Galeri24 endpoint returns the “Diperbarui …” date (RFC3339, at local midnight) and the “Harga ANTAM” table:
+
+```json
+{
+  "last_update": "2026-04-23T00:00:00+07:00",
+  "data": [
+    { "weight": 0.5, "sell_price": 1512000, "buyback_price": 1318000 },
+    { "weight": 1, "sell_price": 2918000, "buyback_price": 2636000 }
+  ]
+}
+```
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -97,6 +113,8 @@ Antaremas endpoint returns the closest “Terakhir Diperbarui …” timestamp (
 | `GIN_MODE` | unset (debug) | Set to `release` for production-style Gin logging. |
 | `LM_SOURCE_URL` | `https://emasantam.id/content/lm.txt` | URL of the LM HTML document to fetch. |
 | `ANTAREMAS_SOURCE_URL` | `https://antaremas.com/harga-emas/` | URL of the Antaremas page to fetch. |
+| `GALERI24_SOURCE_URL` | `https://galeri24.co.id/harga-emas` | URL of the Galeri24 page to fetch. |
+| `CACHE_TTL` | `60s` | Cache TTL for upstream scrapes (e.g. `30s`, `5m`). Set to `0s` to disable caching. |
 
 HTTP timeouts are defined in code (`internal/config`): **15s** for the upstream client, **20s** per `/v1/prices` request context.
 
@@ -117,9 +135,10 @@ make run-api
 Then:
 
 - Health: `http://127.0.0.1:8080/health`
-- Prices: `http://127.0.0.1:8080/v1/prices`
-- Antaremas: `http://127.0.0.1:8080/v1/antaremas/prices`
-- Example filter: `http://127.0.0.1:8080/v1/prices?area=Area%20Jawa-Bali&location=Bandung`
+- LM prices: `http://127.0.0.1:8080/v1/prices/antam`
+- Antaremas: `http://127.0.0.1:8080/v1/prices/hf`
+- Galeri24: `http://127.0.0.1:8080/v1/prices/galeri24/antam`
+- Example filter: `http://127.0.0.1:8080/v1/prices/antam?area=Area%20Jawa-Bali&location=Bandung`
 
 ## Build
 
